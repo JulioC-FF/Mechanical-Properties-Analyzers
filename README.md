@@ -8,5 +8,5 @@ The repository is composed of folders according to each testing method, where ea
 - **Simulated spreadsheet:** A pre-generated raw data spreadsheet obtained from running the simulation script.
 
 ## Requirements
-- **MATLAB** R2020b or later.
+- **MATLAB:** R2020b or later.
 - **Toolboxes:** Optimization Toolbox recommended for numerical fitting.
