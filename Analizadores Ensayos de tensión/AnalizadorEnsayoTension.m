@@ -1,0 +1,120 @@
+%leer datos
+
+filename='datos_ensayo.xlsx';
+datos= readtable(filename);
+
+fuerza_N = datos.Carga_N;
+deltaL_mm =  datos.DeltaL_mm;
+
+%solicitud datos iniciales
+
+preguntas = {'Diametro inicial de la probeta (en mm): ','Longitud inicial medida (en mm): '};
+titulo = 'Configuración inicial del ensayo';
+lineas= 1;
+
+solicitud=inputdlg(preguntas,titulo,lineas);
+
+D_i = str2double(solicitud {1});
+L_i = str2double(solicitud{2});
+
+if isempty(solicitud)
+    error('Operación cancelada');
+end
+
+if isnan(D_i) || isnan(L_i)
+    error('Por favor, ingrese solo valores numéricos en la ventana.');
+end
+
+%---Calculo Area---
+A_i = pi*(D_i^2/4);
+
+%---Calculo esfuerzo y deformacion---
+Esfuerzo = fuerza_N/A_i;
+Deformacion = deltaL_mm/L_i;
+
+%---Grafica esfuerzo/deformacion---
+figure('Name','Resultados del ensayo');
+hold on;
+plot(Deformacion, Esfuerzo, 'LineWidth', 1.5, 'Color', 'g', 'DisplayName', 'Curva Esfuerzo-Deformación');
+grid on;
+xlabel('Deformacion \epsilon (mm/mm)');
+ylabel('Esfuerzo \sigma (MPa)');
+title('Gráfica esfuerzo-deformacion');
+
+%---Modulo de young---
+Valores_elasticos = find(Deformacion<0.002);
+
+eps_elastico=Deformacion(Valores_elasticos);
+sigma_elastico= Esfuerzo(Valores_elasticos);
+
+p=polyfit(eps_elastico,sigma_elastico,1);
+
+E=p(1); 
+
+%---Esfuerzo de fluencia---
+offset = 0.002;
+recta_offset = E*(Deformacion-offset);
+
+rango_busqueda = find(Deformacion>offset);
+
+[~,punto_relativo] = min(abs(Esfuerzo(rango_busqueda)-recta_offset(rango_busqueda)));
+
+punto_real = rango_busqueda(punto_relativo);
+
+Esfuerzo_fluencia = Esfuerzo(punto_real);
+Deformacion_fluencia = Deformacion(punto_real);
+
+
+
+indices_grafico= find(recta_offset>0 & recta_offset< Esfuerzo_fluencia*1.5);
+plot(Deformacion(indices_grafico),recta_offset(indices_grafico),'y--', 'LineWidth',1, 'DisplayName', 'Límite Elástico (0.2% offset)');
+plot(Deformacion_fluencia,Esfuerzo_fluencia,'ko','MarkerSize',8,'MarkerFaceColor', 'y', 'DisplayName', 'Esfuerzo de Fluencia');
+
+
+%---Esfuerzo maximo (Ultimate Tensile Strength/UTS)---
+
+[UTS, punto_UTS] = max(Esfuerzo);
+Deformacion_UTS = Deformacion(punto_UTS);
+plot(Deformacion_UTS, UTS, 'ko','MarkerSize',8,'MarkerFaceColor', '[1, 0.5, 0]', 'DisplayName', 'Resistencia Máxima (UTS)');
+
+%---Esfuerzo de rotura---
+
+Deformacion_ruptura = Deformacion(end);
+Esfuerzo_ruptura = Esfuerzo(end);
+
+plot(Deformacion_ruptura, Esfuerzo_ruptura, 'ko','MarkerSize',8,'MarkerFaceColor', 'r', 'DisplayName', 'Punto de Ruptura' );
+
+%---Leyenda---
+legend('Location', 'southeast', 'FontSize', 9)
+
+%---Ductilidad---
+
+Porcentaje_elongacion = Deformacion_ruptura*100;
+
+%---Tabla de resultados---
+
+nombres = {'Módulo de Young'; 'Esfuerzo de Fluencia (0.2%)'; 'Resistencia Máxima (UTS)'; 'Esfuerzo de Ruptura'; 'Ductilidad'};
+valores = {sprintf('%.2f',E/1000);...
+            sprintf('%.2f',Esfuerzo_fluencia);...
+            sprintf('%.2f',UTS);...
+            sprintf('%.2f',Esfuerzo_ruptura);...
+            sprintf('%.2f',Porcentaje_elongacion);};
+unidades = {'GPa'; 'MPa'; 'MPa'; 'MPa'; '%'};
+
+datos_finales = [nombres, valores, unidades];
+
+fig_tabla= figure('Name', 'Reporte de Propiedades Mecánicas',...
+                  'NumberTitle', 'off',...
+                  'MenuBar', 'none', ...
+                  'ToolBar', 'none', ...
+                  'Position', [400, 400, 450, 180]);
+
+uitable(fig_tabla, ...
+    'Data', datos_finales, ...
+    'ColumnName', {'Propiedad', 'Valor', 'Unidad'}, ...
+    'ColumnWidth',{180, 100, 80}, ...
+    'Position',[20, 20, 410, 140], ...
+    'RowName',[]);
+
+fprintf('\n>> Análisis completo. Se ha generado la tabla de resultados. \n');
+
